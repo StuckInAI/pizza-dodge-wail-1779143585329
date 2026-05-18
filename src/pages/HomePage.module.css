@@ -1,0 +1,81 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.box {
+  width: 100%;
+  max-width: 640px;
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.pizza {
+  font-size: 64px;
+  filter: drop-shadow(0 0 24px rgba(255, 107, 53, 0.5));
+  animation: spin 12s linear infinite;
+  display: inline-block;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 8px;
+  color: var(--text-0);
+}
+.title span { color: var(--accent); }
+
+.tag {
+  color: var(--text-2);
+  font-size: 13px;
+  margin-top: 6px;
+  letter-spacing: 0.05em;
+}
+
+.prompt {
+  color: var(--accent);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prompt::before {
+  content: '$';
+  color: var(--green);
+}
+.prompt::after {
+  content: '_';
+  color: var(--accent);
+  animation: blink 1s infinite;
+}
+
+.body {
+  color: var(--text-1);
+  line-height: 1.7;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.body ul {
+  margin: 8px 0 8px 20px;
+}
+.body li { margin: 4px 0; }
+.body strong { color: var(--accent); }
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
