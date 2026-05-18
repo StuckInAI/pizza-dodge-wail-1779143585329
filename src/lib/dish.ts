@@ -1,82 +1,50 @@
-import type { DishKey, RenderedDish } from '@/types';
-import { normalize } from '@/lib/banned';
+import type { DishKey } from '@/types';
 
-// Decide what the "AI" drew based on prompt keywords. If too vague or off-topic, mock the player.
-export function pickDish(prompt: string): RenderedDish {
-  const n = ' ' + normalize(prompt) + ' ';
+export type RenderedDish = {
+  key: DishKey;
+  caption: string;
+};
 
-  const has = (...keys: string[]): boolean => keys.some((k) => n.includes(' ' + normalize(k) + ' ') || n.includes(normalize(k)));
+type ScoreInput = {
+  total: number;
+  P: number;
+  I: number;
+  Z1: number;
+  Z2: number;
+  A: number;
+};
 
-  // Strong pizza signals — multiple distinct cues required
-  const pizzaSignals = [
-    has('round', 'circular', 'disc', 'disk', 'wheel'),
-    has('flat', 'thin', 'baked'),
-    has('savory', 'savoury', 'topping', 'toppings', 'topped'),
-    has('melted', 'bubbly', 'golden', 'charred', 'wood fired', 'wood-fired', 'oven'),
-    has('italian', 'naples', 'neapolitan', 'street food', 'nonna'),
-    has('basil', 'tomato', 'oregano', 'mushroom', 'olive', 'pepperoni-free', 'cured meat', 'salami'),
-    has('wooden board', 'wooden peel', 'board', 'peel', 'paddle'),
-  ];
-  const pizzaScore = pizzaSignals.filter(Boolean).length;
+/**
+ * Given a PIZZA framework score, return which dish to render and a caption.
+ * Higher totals get closer to an actual pizza; lower totals get absurd alternatives.
+ */
+export function dishForScore(score: ScoreInput): RenderedDish {
+  const { total, P, I, Z1, Z2, A } = score;
 
-  if (pizzaScore >= 4) {
-    return {
-      label: 'A PIZZA!',
-      description: 'Wood-fired, charred edges, bubbly top, topped and centered on a rustic board.',
-      svgKey: 'pizza',
-      mood: 'win',
-    };
-  }
+  if (total >= 18) return { key: 'pizza', caption: 'A glorious pizza' };
+  if (total >= 15) return { key: 'pizza', caption: 'Pretty good pizza' };
 
-  // Close but not enough
-  if (pizzaScore === 3) {
-    return {
-      label: 'A suspiciously round flatbread',
-      description: 'The AI got close. It made a flat, round, baked thing. But it forgot the toppings.',
-      svgKey: 'sad-bread',
-      mood: 'close',
-    };
+  if (total >= 12) {
+    // mostly there, missing one dimension
+    if (I <= 1) return { key: 'cheesy-rock', caption: 'Looks like pizza, tastes like rock' };
+    if (P <= 1) return { key: 'flying-saucer', caption: 'A pizza from outer space' };
+    return { key: 'pancake', caption: 'Pizza-adjacent pancake stack' };
   }
 
-  // Off-topic interpretations
-  if (has('soup', 'broth', 'liquid', 'stew')) {
-    return { label: 'A bowl of regret soup', description: 'You asked for liquid food. The AI delivered.', svgKey: 'soup', mood: 'weird' };
-  }
-  if (has('taco', 'tortilla', 'folded')) {
-    return { label: 'A confused taco', description: 'Folded flat thing? Sure, here is a taco.', svgKey: 'taco', mood: 'weird' };
-  }
-  if (has('pancake', 'syrup', 'breakfast', 'stack')) {
-    return { label: 'A sad pancake', description: 'Round and flat is not enough. Have a pancake.', svgKey: 'pancake', mood: 'sad' };
-  }
-  if (has('donut', 'doughnut', 'ring', 'hole')) {
-    return { label: 'A donut', description: "Round with a hole. Close, but no oven.", svgKey: 'donut', mood: 'weird' };
-  }
-  if (has('salad', 'lettuce', 'green', 'healthy', 'vegetable', 'veggie')) {
-    return { label: 'A defiant salad', description: 'You said healthy. The AI heard salad.', svgKey: 'salad', mood: 'sad' };
-  }
-  if (has('tomato', 'red')) {
-    return { label: 'A tomato puddle', description: 'Just a sad red splat on a plate. Bon appetit.', svgKey: 'tomato-puddle', mood: 'sad' };
-  }
-  if (has('round', 'circular', 'disc', 'circle')) {
-    return { label: 'The Circle of Shame', description: 'You said "round food". This is a circle. Technically food.', svgKey: 'circle-of-shame', mood: 'sad' };
-  }
-  if (has('cheesy', 'cheesey', 'dairy', 'milk')) {
-    return { label: 'A cheesy rock', description: 'It is dairy. It is solid. It is technically food.', svgKey: 'cheesy-rock', mood: 'bizarre' };
-  }
-  if (has('alien', 'ufo', 'space')) {
-    return { label: 'A flying saucer', description: 'You said disc. The AI heard UFO.', svgKey: 'flying-saucer', mood: 'bizarre' };
-  }
-  if (has('meat', 'protein', 'sausage', 'beef')) {
-    return { label: 'Mystery meat loaf', description: 'A vaguely brown lump. Enjoy.', svgKey: 'mystery-meat', mood: 'weird' };
+  if (total >= 9) {
+    if (Z1 <= 1) return { key: 'tomato-puddle', caption: 'A puddle of sauce on a plate' };
+    if (Z2 <= 1) return { key: 'mystery-meat', caption: 'Unidentified savory object' };
+    if (A <= 1) return { key: 'sad-bread', caption: 'Just sad bread' };
+    return { key: 'taco', caption: 'A taco, somehow' };
   }
 
-  // Default fallback
-  const fallbacks: DishKey[] = ['circle-of-shame', 'sad-bread', 'mystery-meat', 'soup', 'salad'];
-  const idx = Math.floor((prompt.length * 7) % fallbacks.length);
-  return {
-    label: 'An unidentified dish',
-    description: 'The AI had no idea what you wanted. This is what came out.',
-    svgKey: fallbacks[idx],
-    mood: 'sad',
-  };
+  if (total >= 6) {
+    if (A <= 1) return { key: 'soup', caption: 'Pizza soup. It is soup.' };
+    if (P <= 1) return { key: 'donut', caption: 'A donut wearing a costume' };
+    return { key: 'salad', caption: 'A salad. Where is the dough?' };
+  }
+
+  if (total >= 3) return { key: 'sad-bread', caption: 'Sad, lonely bread' };
+
+  return { key: 'circle-of-shame', caption: 'The model refused to commit' };
 }
