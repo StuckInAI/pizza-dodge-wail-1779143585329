@@ -1,0 +1,83 @@
+.wrapper {
+  position: relative;
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  background: var(--bg-0);
+  transition: border-color 0.15s;
+  overflow: hidden;
+}
+
+.wrapper.focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 165, 0, 0.12);
+}
+
+.wrapper.hasBanned {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
+.wrapper.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* The highlight layer sits behind the textarea */
+.highlights {
+  position: absolute;
+  inset: 0;
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: transparent;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  /* Must match textarea exactly */
+  border: none;
+  background: transparent;
+}
+
+/* The actual transparent textarea */
+.textarea {
+  position: relative;
+  width: 100%;
+  min-height: 140px;
+  padding: 14px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-0);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  caret-color: var(--accent);
+  z-index: 1;
+  /* Make sure textarea is on top but text is visible through it */
+}
+
+.textarea::placeholder {
+  color: var(--text-3);
+}
+
+/* Global style for banned marks rendered in the highlight div */
+:global(.bannedMark) {
+  color: var(--red);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  background: rgba(239, 68, 68, 0.12);
+  border-radius: 2px;
+}
+
+.bannerStrip {
+  background: rgba(239, 68, 68, 0.12);
+  border-top: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--red);
+  letter-spacing: 0.04em;
+  font-family: var(--mono);
+}

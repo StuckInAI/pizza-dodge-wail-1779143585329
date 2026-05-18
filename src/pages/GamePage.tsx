@@ -7,9 +7,13 @@ import Timer from '@/components/Timer';
 import DishSVG from '@/components/DishSVG';
 import ScoreCard from '@/components/ScoreCard';
 import WallOfShame from '@/components/WallOfShame';
+import PromptEditor from '@/components/PromptEditor';
+import CoachingPanel from '@/components/CoachingPanel';
 import { useGame } from '@/hooks/GameContext';
 import { checkBanned } from '@/lib/banned';
 import { scorePrompt, judgeDish } from '@/lib/scoring';
+import { getCoachingTips } from '@/lib/coaching';
+import { generateDishName } from '@/lib/dishNames';
 import { MODEL_ANSWER } from '@/lib/modelAnswer';
 import type { Attempt, DishKey } from '@/types';
 import styles from './GamePage.module.css';
@@ -45,16 +49,26 @@ export default function GamePage() {
   const endTime = session.startedAt + session.durationMs;
   const attemptsLeft = me ? Math.max(0, 3 - me.attempts.length) : 3;
   const lastAttempt: Attempt | undefined = me?.attempts[me.attempts.length - 1];
+
   const lastDish: DishKey = lastAttempt?.blocked
     ? 'circle-of-shame'
     : (lastAttempt?.dish ?? 'circle-of-shame');
+
+  const lastDishName = lastAttempt && !lastAttempt.blocked && lastAttempt.dish
+    ? generateDishName(lastAttempt.dish, lastAttempt.createdAt)
+    : undefined;
+
   const lastCaption = lastAttempt?.blocked
     ? `BLOCKED: contained "${lastAttempt.blockedWord}"`
     : lastAttempt
     ? lastAttempt.passed
-      ? 'PASSED — looks like the target!'
-      : 'Not quite there yet...'
+      ? '✓ PASSED — looks like the target!'
+      : lastDishName ?? 'Not quite there yet...'
     : 'No attempts yet — describe the target dish';
+
+  const coachingTips = lastAttempt && !lastAttempt.blocked && lastAttempt.score
+    ? getCoachingTips(lastAttempt.score)
+    : [];
 
   const canSubmit =
     !!me &&
@@ -124,6 +138,7 @@ export default function GamePage() {
       </header>
 
       <div className={styles.grid}>
+        {/* LEFT: target + last result */}
         <div className={styles.left}>
           <Terminal title="~/target">
             <h3 className={styles.sectionTitle}>// Target Dish</h3>
@@ -137,8 +152,8 @@ export default function GamePage() {
             </p>
           </Terminal>
 
-          <Terminal title="~/your-attempt">
-            <h3 className={styles.sectionTitle}>// Last Result</h3>
+          <Terminal title="~/your-creation">
+            <h3 className={styles.sectionTitle}>// Your Last Creation</h3>
             <DishSVG dishKey={lastDish} caption={lastCaption} />
             {lastAttempt && !lastAttempt.blocked && lastAttempt.score ? (
               <div style={{ marginTop: 12 }}>
@@ -148,13 +163,13 @@ export default function GamePage() {
           </Terminal>
         </div>
 
+        {/* CENTER: prompt editor + coaching */}
         <div className={styles.center}>
           <Terminal title="~/prompt">
             <h3 className={styles.sectionTitle}>// Compose your prompt</h3>
-            <textarea
-              className={styles.textarea}
+            <PromptEditor
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={setPrompt}
               placeholder="You are a culinary illustrator. Render a round, oven-baked Italian flatbread topped with..."
               rows={8}
               disabled={!canSubmit && attemptsLeft === 0}
@@ -172,6 +187,15 @@ export default function GamePage() {
             </div>
           </Terminal>
 
+          {/* Coaching — show after any non-blocked attempt */}
+          {lastAttempt && !lastAttempt.blocked && (
+            <CoachingPanel
+              tips={coachingTips}
+              dishName={lastDishName}
+              attemptVersion={lastAttempt.version}
+            />
+          )}
+
           {session.status === 'ended' || me?.finished ? (
             <Terminal title="~/model-answer">
               <h3 className={styles.sectionTitle}>// Reference Prompt</h3>
@@ -180,6 +204,7 @@ export default function GamePage() {
           ) : null}
         </div>
 
+        {/* RIGHT: wall of shame */}
         <div className={styles.right}>
           <WallOfShame session={session} highlightPlayerId={myId} />
         </div>

@@ -54,13 +54,13 @@ export function normalize(input: string): string {
   // Replace anything that isn't a-z with a space
   s = s.replace(/[^a-z]+/g, ' ');
   // Collapse 3+ repeated letters to 2 (piiiizza -> piizza)
-  s = s.replace(/(.)\1{2,}/g, '$1$1');
+  s = s.replace(/(.)\'\1{2,}/g, '$1$1');
   // And collapse any remaining double letters to single for fuzzy matching too
   return s;
 }
 
 function collapseDoubles(s: string): string {
-  return s.replace(/(.)\1+/g, '$1');
+  return s.replace(/(.)\'\1+/g, '$1');
 }
 
 // Simple Levenshtein for typos
@@ -87,6 +87,10 @@ function levenshtein(a: string, b: string): number {
 
 export type BanCheck = { blocked: boolean; word?: string };
 
+/**
+ * Check a prompt for banned words.
+ * Returns { blocked, word } where word is the matched banned word.
+ */
 export function checkBanned(prompt: string): BanCheck {
   const normSpaced = normalize(prompt);
   const normCollapsed = collapseDoubles(normSpaced.replace(/\s+/g, ''));
@@ -117,4 +121,54 @@ export function checkBanned(prompt: string): BanCheck {
     }
   }
   return { blocked: false };
+}
+
+/**
+ * Find ALL banned word matches in a string — returns array of { word, indices }.
+ * Used for real-time inline highlighting.
+ */
+export type BanMatch = {
+  word: string;        // the original banned word matched
+  start: number;       // char index in original input
+  end: number;         // exclusive
+};
+
+export function findBannedMatches(input: string): BanMatch[] {
+  if (!input) return [];
+  const matches: BanMatch[] = [];
+
+  // We do a word-token scan so we can map back to original positions.
+  // Strategy: tokenize the original input by word boundaries, check each token.
+  const tokenRegex = /[\w']+/g;
+  let m: RegExpExecArray | null;
+
+  while ((m = tokenRegex.exec(input)) !== null) {
+    const tok = m[0];
+    const start = m.index;
+    const end = start + tok.length;
+    const normTok = normalize(tok).replace(/\s+/g, '');
+    const normTokCol = collapseDoubles(normTok);
+
+    for (const raw of BANNED_WORDS) {
+      const target = normalize(raw).replace(/\s+/g, '');
+      if (!target) continue;
+      const targetCol = collapseDoubles(target);
+
+      let hit = false;
+      if (normTok.includes(target)) hit = true;
+      if (!hit && normTokCol.includes(targetCol)) hit = true;
+      if (!hit && target.length >= 5) {
+        const threshold = target.length <= 6 ? 1 : 2;
+        if (Math.abs(normTok.length - target.length) <= threshold && levenshtein(normTok, target) <= threshold) hit = true;
+        if (!hit && Math.abs(normTokCol.length - targetCol.length) <= threshold && levenshtein(normTokCol, targetCol) <= threshold) hit = true;
+      }
+
+      if (hit) {
+        matches.push({ word: raw, start, end });
+        break; // one match per token is enough
+      }
+    }
+  }
+
+  return matches;
 }
