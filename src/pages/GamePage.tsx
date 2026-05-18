@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Home } from 'lucide-react';
 import Terminal from '@/components/Terminal';
 import Button from '@/components/Button';
 import Timer from '@/components/Timer';
-import DishSVG from '@/components/DishSVG';
+import AIImageDisplay from '@/components/AIImageDisplay';
+import AISetupGuide from '@/components/AISetupGuide';
 import ScoreCard from '@/components/ScoreCard';
 import WallOfShame from '@/components/WallOfShame';
 import PromptEditor from '@/components/PromptEditor';
@@ -14,6 +15,8 @@ import { checkBanned } from '@/lib/banned';
 import { scorePrompt, judgeDish } from '@/lib/scoring';
 import { getCoachingTips } from '@/lib/coaching';
 import { generateDishName } from '@/lib/dishNames';
+import { generateAIImage } from '@/lib/aiGenerate';
+import { isAIConnected } from '@/lib/aiConfig';
 import { MODEL_ANSWER } from '@/lib/modelAnswer';
 import type { Attempt, DishKey } from '@/types';
 import styles from './GamePage.module.css';
@@ -27,6 +30,11 @@ export default function GamePage() {
   const session = useMemo(() => getSession(code), [code, getSession, refreshTick]);
   const [prompt, setPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // AI image generation state
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiImageUrl, setAiImageUrl] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) {
@@ -75,9 +83,11 @@ export default function GamePage() {
     !me.finished &&
     session.status === 'running' &&
     prompt.trim().length > 0 &&
-    attemptsLeft > 0;
+    attemptsLeft > 0 &&
+    !aiLoading;
 
-  const handleSubmit = () => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handleSubmit = useCallback(async () => {
     setError(null);
     if (!me) return;
     const trimmed = prompt.trim();
@@ -100,6 +110,8 @@ export default function GamePage() {
       };
       submitAttempt(code, myId, attempt);
       setPrompt('');
+      setAiImageUrl(null);
+      setAiError(null);
       return;
     }
 
@@ -119,7 +131,25 @@ export default function GamePage() {
     };
     submitAttempt(code, myId, attempt);
     setPrompt('');
-  };
+
+    // Fire AI image generation if a provider is connected
+    if (isAIConnected()) {
+      setAiLoading(true);
+      setAiImageUrl(null);
+      setAiError(null);
+      const result = await generateAIImage(trimmed);
+      setAiLoading(false);
+      if (result.type === 'url') {
+        setAiImageUrl(result.url);
+      } else if (result.type === 'error') {
+        setAiError(result.message);
+      }
+      // type === 'mock' → leave null, DishSVG fallback renders
+    } else {
+      setAiImageUrl(null);
+      setAiError(null);
+    }
+  }, [me, prompt, myId, code, submitAttempt]);
 
   const handleExpire = () => {
     if (session.status === 'running') endSession(code);
@@ -142,7 +172,10 @@ export default function GamePage() {
         <div className={styles.left}>
           <Terminal title="~/target">
             <h3 className={styles.sectionTitle}>// Target Dish</h3>
-            <DishSVG dishKey="pizza" caption="Describe THIS — without forbidden words" />
+            <AIImageDisplay
+              dishKey="pizza"
+              caption="Describe THIS — without forbidden words"
+            />
             <p className={styles.hint}>
               You have <strong>{attemptsLeft}</strong> attempt(s) left. Banned words include
               everything obvious: pizza, cheese, sauce, dough, slice, pepperoni, margherita,
@@ -154,7 +187,13 @@ export default function GamePage() {
 
           <Terminal title="~/your-creation">
             <h3 className={styles.sectionTitle}>// Your Last Creation</h3>
-            <DishSVG dishKey={lastDish} caption={lastCaption} />
+            <AIImageDisplay
+              imageUrl={aiImageUrl}
+              dishKey={lastDish}
+              caption={lastCaption}
+              loading={aiLoading}
+              error={aiError}
+            />
             {lastAttempt && !lastAttempt.blocked && lastAttempt.score ? (
               <div style={{ marginTop: 12 }}>
                 <ScoreCard score={lastAttempt.score} />
@@ -167,6 +206,7 @@ export default function GamePage() {
         <div className={styles.center}>
           <Terminal title="~/prompt">
             <h3 className={styles.sectionTitle}>// Compose your prompt</h3>
+            <AISetupGuide />
             <PromptEditor
               value={prompt}
               onChange={setPrompt}
@@ -176,8 +216,12 @@ export default function GamePage() {
             />
             {error ? <p className={styles.error}>{error}</p> : null}
             <div className={styles.actions}>
-              <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit}>
-                Submit Attempt ({attemptsLeft} left)
+              <Button
+                variant="primary"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+              >
+                {aiLoading ? 'Generating…' : `Submit Attempt (${attemptsLeft} left)`}
               </Button>
               {me?.finished ? (
                 <span className={styles.statusDone}>
