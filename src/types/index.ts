@@ -1,24 +1,35 @@
-export type PizzaLetter = 'P' | 'I' | 'Z1' | 'Z2' | 'A';
+export type DishKey =
+  | 'pizza'
+  | 'sad-bread'
+  | 'flying-saucer'
+  | 'tomato-puddle'
+  | 'cheesy-rock'
+  | 'circle-of-shame'
+  | 'salad'
+  | 'mystery-meat'
+  | 'soup'
+  | 'taco'
+  | 'pancake'
+  | 'donut';
 
 export type PizzaScore = {
-  P: number; // Persona
-  I: number; // Intent
-  Z1: number; // Zones
-  Z2: number; // Zen (constraints / tone)
-  A: number; // Actions
+  P: number;
+  I: number;
+  Z1: number;
+  Z2: number;
+  A: number;
   total: number;
 };
 
 export type Attempt = {
   id: string;
-  version: number; // 1, 2, 3
+  version: number;
   prompt: string;
   blocked: boolean;
   blockedWord?: string;
-  score?: PizzaScore;
   passed: boolean;
-  coaching?: string;
-  rendered: RenderedDish | null;
+  score?: PizzaScore;
+  dish: DishKey;
   createdAt: number;
 };
 
@@ -38,26 +49,5 @@ export type GameSession = {
   startedAt: number;
   durationMs: number;
   players: Record<string, Player>;
-  status: 'lobby' | 'running' | 'ended';
+  status: 'running' | 'ended';
 };
-
-export type RenderedDish = {
-  label: string;
-  description: string;
-  svgKey: DishKey;
-  mood: 'sad' | 'weird' | 'bizarre' | 'close' | 'win';
-};
-
-export type DishKey =
-  | 'pizza'
-  | 'sad-bread'
-  | 'flying-saucer'
-  | 'tomato-puddle'
-  | 'cheesy-rock'
-  | 'circle-of-shame'
-  | 'salad'
-  | 'mystery-meat'
-  | 'soup'
-  | 'taco'
-  | 'pancake'
-  | 'donut';

@@ -1,16 +1,19 @@
-export const MODEL_ANSWER = `You are an Italian street food photographer documenting authentic Naples cuisine.
+export const MODEL_ANSWER = `You are an expert culinary illustrator and food stylist with 20 years of experience.
 
-Generate a photorealistic, top-down image of a round, flat, wood-fired savory disc — approximately 12 inches in diameter — resting centered on a rustic wooden board.
+Intent: Render a single, photorealistic, top-down view of a classic round Italian oven-baked flatbread dish.
 
-The disc has:
-- Bubbly, golden-brown surface with charred, blistered edges around the rim
-- A bright red, slow-cooked tomato base spread across the middle
-- Pools of melted, milky-white mozzarella scattered in irregular blobs
-- Fresh basil leaves placed sparingly on top
-- A light drizzle of olive oil glistening on the surface
+Context (Zones):
+- Shape: perfectly round, ~30cm diameter, slightly puffed outer edge with leopard-spotted charring.
+- Base: golden-brown baked surface, hand-stretched, rustic.
+- Toppings: bright red San Marzano tomato spread, irregular white milky blobs of melted dairy, scattered fresh green basil leaves, a drizzle of olive oil.
+- Setting: dark wooden board, soft warm lighting from the left, faint flour dust.
 
-Composition: top-down view, centered, the wooden board fills the frame with a hint of a white linen napkin in the bottom-left corner.
+Constraints (Zen):
+- Do NOT use the obvious banned words.
+- Style: photorealistic, shallow depth of field, food-magazine quality.
+- Tone: appetizing, warm, rustic.
+- No people, no text, no logos.
 
-Style: cinematic, warm rustic aesthetic, shallow depth of field, soft natural light from the upper-left, film grain, photorealistic, high resolution.
-
-Constraints: no text, no people, no hands, no utensils in frame.`;
+Actions:
+- Return a single detailed visual description in 2 short paragraphs (under 120 words total).
+- End with a one-line caption suitable for a menu.`;

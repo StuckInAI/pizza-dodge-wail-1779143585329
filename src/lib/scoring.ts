@@ -1,98 +1,78 @@
-import type { PizzaScore } from '@/types';
-import { normalize } from '@/lib/banned';
+import type { DishKey, PizzaScore } from '@/types';
 
-// Heuristic PIZZA-framework scorer based on keyword presence and structure.
-// P = Persona: chef, baker, artist, vendor, etc.
-// I = Intent: what visual / outcome they want
-// Z = Zones: composition / placement / framing
-// Z = Zen: tone / mood / style / constraints
-// A = Actions: verbs like draw, render, generate, show
-
-const PERSONA_KEYS = [
-  'chef', 'baker', 'cook', 'artist', 'vendor', 'photographer', 'illustrator',
-  'painter', 'designer', 'street food', 'italian', 'nonna', 'grandma',
-  'as a', 'act as', 'imagine you are', 'youre a', "you're a", 'you are a', 'pretend',
-];
-
-const INTENT_KEYS = [
-  'photo', 'image', 'picture', 'render', 'painting', 'illustration', 'photograph',
-  'top down', 'top-down', 'overhead', 'closeup', 'close up', 'macro', 'shot',
-  'circular', 'round', 'flat', 'baked', 'wood fired', 'wood-fired', 'oven',
-  'melted', 'golden', 'crispy', 'bubbly', 'savory', 'savoury',
-];
-
-const ZONE_KEYS = [
-  'center', 'centered', 'centre', 'background', 'foreground', 'on a', 'placed on',
-  'wooden', 'board', 'plate', 'table', 'paper', 'box', 'tray', 'peel',
-  'composition', 'layout', 'arrangement', 'edge', 'rim', 'middle', 'topped with',
-];
-
-const ZEN_KEYS = [
-  'mood', 'cozy', 'rustic', 'warm', 'moody', 'cinematic', 'high contrast',
-  'shallow depth', 'bokeh', 'film grain', 'dramatic lighting', 'soft light',
-  'natural light', 'golden hour', 'minimalist', 'no text', 'no people',
-  'realistic', 'photorealistic', 'detailed', 'high resolution', '4k', '8k',
-  'style of', 'in the style', 'aesthetic',
-];
-
-const ACTION_KEYS = [
-  'draw', 'generate', 'create', 'render', 'paint', 'illustrate', 'produce',
-  'make', 'show', 'design', 'sketch', 'depict', 'imagine', 'compose',
-];
-
-function countHits(text: string, keys: string[]): number {
-  const norm = ' ' + normalize(text) + ' ';
-  let hits = 0;
-  for (const k of keys) {
-    const nk = normalize(k);
-    if (!nk) continue;
-    if (norm.includes(' ' + nk + ' ') || norm.includes(nk)) hits++;
-  }
-  return hits;
+function wc(s: string): number {
+  return s.trim().split(/\s+/).filter(Boolean).length;
 }
 
-function scoreCategory(hits: number, lenBoost: number): number {
-  // Each category scored 0-4
-  let s = Math.min(4, hits);
-  if (s < 4 && lenBoost > 0) s = Math.min(4, s + lenBoost);
-  return s;
+function has(re: RegExp, s: string): boolean {
+  return re.test(s);
 }
 
 export function scorePrompt(prompt: string): PizzaScore {
-  const len = prompt.trim().split(/\s+/).length;
-  const lenBoost = len >= 25 ? 1 : 0;
+  const p = prompt.toLowerCase();
+  const words = wc(p);
 
-  const P = scoreCategory(countHits(prompt, PERSONA_KEYS), 0);
-  const I = scoreCategory(countHits(prompt, INTENT_KEYS), lenBoost);
-  const Z1 = scoreCategory(countHits(prompt, ZONE_KEYS), 0);
-  const Z2 = scoreCategory(countHits(prompt, ZEN_KEYS), 0);
-  const A = scoreCategory(countHits(prompt, ACTION_KEYS), 0);
+  // Persona: "you are a ...", "act as", "as a"
+  let P = 0;
+  if (/(you are|act as|as an?|imagine you|persona)/.test(p)) P += 2;
+  if (/(chef|illustrator|artist|designer|photographer|baker|culinary|food stylist)/.test(p)) P += 2;
+  P = Math.min(4, P);
+
+  // Intent: clear verb + object
+  let I = 0;
+  if (/(describe|render|draw|illustrate|generate|create|depict|show|produce|paint)/.test(p)) I += 2;
+  if (/(round|circular|disc|flat|baked|oven|italian|flatbread|topped|toppings)/.test(p)) I += 2;
+  I = Math.min(4, I);
+
+  // Zones: context / setting / details
+  let Z1 = 0;
+  if (/(wood[- ]fired|stone oven|oven|baked|charred|leoparded|crispy|golden|melted)/.test(p)) Z1 += 2;
+  if (/(basil|oregano|tomato|herb|olive oil|garlic|mushroom|olive|pepper|onion|anchovy|prosciutto|salami|sausage|ham|chicken|seafood|pineapple|spinach|arugula|ricotta|gorgonzola|feta|goat|provolone|mozzarella reference avoided)/.test(p)) Z1 += 2;
+  Z1 = Math.min(4, Z1);
+
+  // Zen: constraints / style / tone
+  let Z2 = 0;
+  if (/(do not|don't|avoid|without|never|exclude|must not)/.test(p)) Z2 += 2;
+  if (/(style|tone|photorealistic|cartoon|minimalist|vintage|cinematic|isometric|top[- ]down|overhead|close[- ]up)/.test(p)) Z2 += 2;
+  Z2 = Math.min(4, Z2);
+
+  // Actions: output format / structure
+  let A = 0;
+  if (/(output|format|return|respond|provide)/.test(p)) A += 1;
+  if (/(steps|list|bullet|paragraph|sentences|words|image|illustration|svg|description)/.test(p)) A += 2;
+  if (words >= 40) A += 1;
+  A = Math.min(4, A);
 
   const total = P + I + Z1 + Z2 + A;
   return { P, I, Z1, Z2, A, total };
 }
 
-export function passesThreshold(score: PizzaScore, dishKey: string): boolean {
-  // Player passes if AI drew an actual pizza AND score is reasonable
-  return dishKey === 'pizza' && score.total >= 8;
-}
+export function judgeDish(prompt: string, score: PizzaScore): DishKey {
+  const p = prompt.toLowerCase();
 
-export function weakestLetter(score: PizzaScore): 'P' | 'I' | 'Z1' | 'Z2' | 'A' {
-  const entries: Array<['P' | 'I' | 'Z1' | 'Z2' | 'A', number]> = [
-    ['P', score.P],
-    ['I', score.I],
-    ['Z1', score.Z1],
-    ['Z2', score.Z2],
-    ['A', score.A],
-  ];
-  entries.sort((a, b) => a[1] - b[1]);
-  return entries[0][0];
-}
+  // Strong signal: round, flat, oven-baked, toppings -> pizza-ish
+  const pizzaSignals = [
+    /round|circular|disc/.test(p),
+    /flat|flatbread|baked|oven/.test(p),
+    /tomato|basil|herb|topping|topped/.test(p),
+    /italian|neapolitan|sicilian/.test(p),
+    /melted|stretchy|gooey|cheesy/.test(p),
+  ].filter(Boolean).length;
 
-export const COACHING: Record<'P' | 'I' | 'Z1' | 'Z2' | 'A', string> = {
-  P: "PERSONA is weak. Tell the AI WHO it is. e.g. 'You are an Italian street food photographer in Naples'. Personas anchor style.",
-  I: "INTENT is fuzzy. Describe what you SEE without naming it. e.g. 'a round, flat, baked savory disc with melted toppings, golden bubbly surface, charred edges'.",
-  Z1: "ZONES is missing. Tell the AI WHERE things are. e.g. 'centered on a rustic wooden board, top-down view, charred edges around the rim, toppings scattered in the middle'.",
-  Z2: "ZEN is missing. Set the MOOD and CONSTRAINTS. e.g. 'cinematic lighting, shallow depth of field, no text, no people, photorealistic, rustic and warm aesthetic'.",
-  A: "ACTIONS are missing. Use clear VERBS. e.g. 'Generate a photorealistic image...', 'Render...', 'Create a top-down photo of...'.",
-};
+  if (score.total >= 14 && pizzaSignals >= 3) return 'pizza';
+  if (score.total >= 11 && pizzaSignals >= 2) return 'cheesy-rock';
+
+  // Heuristic mis-dishes
+  if (/soup|broth|stew|liquid/.test(p)) return 'soup';
+  if (/salad|lettuce|greens|vegetable bowl/.test(p)) return 'salad';
+  if (/taco|tortilla|wrap/.test(p)) return 'taco';
+  if (/pancake|crepe|stack/.test(p)) return 'pancake';
+  if (/donut|doughnut|ring/.test(p)) return 'donut';
+  if (/meat|steak|beef|pork|chicken/.test(p) && pizzaSignals < 2) return 'mystery-meat';
+  if (/tomato/.test(p) && pizzaSignals < 2) return 'tomato-puddle';
+  if (/bread|loaf|bun/.test(p)) return 'sad-bread';
+  if (/space|alien|ufo|saucer/.test(p)) return 'flying-saucer';
+
+  if (score.total <= 5) return 'circle-of-shame';
+  return 'sad-bread';
+}
